@@ -7,6 +7,15 @@ fun calcSafeReports(input: List<String>): Int {
     return safeReportsNum
 }
 
+fun calcSafeReportsWithTolerance(input: List<String>): Int {
+    var safeReportsNum = 0
+    input.forEach { line ->
+        val report = line.split(" ").map { it.toInt() }
+        if (isReportSafeWithTolerance(report)) safeReportsNum++
+    }
+    return safeReportsNum
+}
+
 private fun isReportSafe(report: List<Int>): Boolean {
     val n = report.size
     if (n < 2) return  true
@@ -28,16 +37,6 @@ private fun isReportSafe(report: List<Int>): Boolean {
     return true
 }
 
-fun calcSafeReportsWithTolerance(input: List<String>): Int {
-    var safeReportsNum = 0
-    input.forEach { line ->
-        val report = line.split(" ").map { it.toInt() }
-        if (isReportSafeWithTolerance(report)) safeReportsNum++
-//        println(report.joinToString(" ", prefix = "safeReportsNum = $safeReportsNum: "))
-    }
-    return safeReportsNum
-}
-
 private fun isReportSafeWithTolerance(report: List<Int>): Boolean {
     val n = report.size
     if (n < 3) return  true
@@ -55,16 +54,10 @@ private fun isReportSafeWithTolerance(report: List<Int>): Boolean {
         i++
     }
     if (canTolerate) return true
-//    println(report.joinToString(" ", prefix = "report: "))
-
     var newList = report.filterIndexed { index, _ -> index != i - 1 }
-//    println(newList.joinToString(" ", prefix = "List1 (i - 1 = ${i - 1}): "))
     if (isReportSafe(newList)) return true
-
     newList = report.filterIndexed { index, _ -> index != i }
-//    println(newList.joinToString(" ", prefix = "List2 (i = $i): "))
     if (isReportSafe(newList)) return true
-
     if (i < 2) return false
     newList = report.filterIndexed { index, _ -> index != i - 2 }
     return isReportSafe(newList)
@@ -77,13 +70,6 @@ fun main() {
     check(calcSafeReports(listOf("1 2")) == 1)
     check(calcSafeReports(listOf("2 1")) == 1)
 
-    val testInput = readInput("Day02_test")
-    check(calcSafeReports(testInput) == 3)
-
-    val input = readInput("Day02")
-    println(calcSafeReports(input))
-
-    check(calcSafeReportsWithTolerance(testInput) == 4)
     check(calcSafeReportsWithTolerance(listOf("2 1")) == 1)
     check(calcSafeReportsWithTolerance(listOf("2 1 2 3")) == 1)
     check(calcSafeReportsWithTolerance(listOf("2 19 3 5")) == 1)
@@ -92,8 +78,13 @@ fun main() {
     check(calcSafeReportsWithTolerance(listOf("6 3 2 500")) == 1)
     check(calcSafeReportsWithTolerance(listOf("88 89 91 91 92 94 98")) == 0)
     check(calcSafeReportsWithTolerance(listOf("88 89 91 91 92 94 97")) == 1)
-
     check(calcSafeReportsWithTolerance(listOf("1 3 2 1")) == 1)
 
-    println(calcSafeReportsWithTolerance(input))
+    val testInput = readInput("Day02_test")
+    check(calcSafeReports(testInput) == 3)
+    check(calcSafeReportsWithTolerance(testInput) == 4)
+
+    val input = readInput("Day02")
+    calcSafeReports(input).println()
+    calcSafeReportsWithTolerance(input).println()
 }
