@@ -1,4 +1,4 @@
-fun calcAntinodes(field: List<String>): Int {
+fun calcAntinodes(field: List<String>, isResonant: Boolean = false): Int {
     val n = field.size
     val antennasMap = mutableMapOf<Char, MutableList<Coordinate>>()
     val antinodes = mutableSetOf<Coordinate>()
@@ -10,10 +10,27 @@ fun calcAntinodes(field: List<String>): Int {
 
     antennasMap.values.forEach { list ->
         if (list.size < 2) return@forEach
-        antinodes += findAntinodesInField(list, n)
+        val newAntiNodes = mutableSetOf<Coordinate>()
+        var i = 1
+        while (i < list.size) {
+            val firstNode = list[i - 1]
+            for (j in i..< list.size) {
+                val secondNode = list[j]
+                val antinodesInBorders =
+                    if (isResonant) findResonantAntinodesInBordersFromPair(firstNode, secondNode, n)
+                    else findAntinodesInBordersFromPair(firstNode, secondNode, n)
+                newAntiNodes.addAll(antinodesInBorders)
+            }
+            i++
+        }
+        antinodes += newAntiNodes
     }
-//    printAntinodesOnField(field, antinodes)
+    // printAntinodesOnField(field, antinodes)
     return antinodes.size
+}
+
+private fun Coordinate.isInBorders(n: Int): Boolean {
+    return this.first >= 0 && this.second >= 0 && this. first < n && this.second < n
 }
 
 private fun printAntinodesOnField(field: List<String>, antinodes: Set<Coordinate>) {
@@ -25,36 +42,35 @@ private fun printAntinodesOnField(field: List<String>, antinodes: Set<Coordinate
     }
 }
 
-private fun findAntinodesInField(list: List<Coordinate>, border: Int): Set<Coordinate> {
-    val newAntiNodes = mutableSetOf<Coordinate>()
-    val n = list.size
-//    list.joinToString(" ", prefix = "lit of coord: ").println()
-    if (n < 2) return newAntiNodes
-    var i = 1
-    while (i < n) {
-        val firstNode = list[i - 1]
-        for (j in i..< n) {
-            val secondNode = list[j]
-            val pairOfAntinodes = findPairOfAntinodes(firstNode, secondNode)
-            if (pairOfAntinodes.first.isInBorders(border)) newAntiNodes.add(pairOfAntinodes.first)
-            if (pairOfAntinodes.second.isInBorders(border)) newAntiNodes.add(pairOfAntinodes.second)
-//            println("nodes = $firstNode $secondNode, antinodesToCheck = ${pairOfAntinodes.first} ${pairOfAntinodes.second} ${newAntiNodes.joinToString(" ", prefix = "new antinodes set: ")}")
-        }
-        i++
-    }
-    return newAntiNodes
-}
-
-private fun findPairOfAntinodes(node1: Coordinate, node2: Coordinate): Pair<Coordinate, Coordinate> {
+private fun findAntinodesInBordersFromPair(node1: Coordinate, node2: Coordinate, border: Int): List<Coordinate> {
+    val result = mutableListOf<Coordinate>()
     val deltaFirstCoord = node1.first - node2.first
     val deltaSecondCoord = node1.second - node2.second
     val aFirst = Coordinate(node1.first + deltaFirstCoord, node1.second + deltaSecondCoord)
     val aSecond = Coordinate(node2.first - deltaFirstCoord, node2.second - deltaSecondCoord)
-    return Pair(aFirst, aSecond)
+    if (aFirst.isInBorders(border)) result.add(aFirst)
+    if (aSecond.isInBorders(border)) result.add(aSecond)
+    return result
 }
 
-private fun Coordinate.isInBorders(n: Int): Boolean {
-    return this.first >= 0 && this.second >= 0 && this. first < n && this.second < n
+// Part 2
+private fun findResonantAntinodesInBordersFromPair(node1: Coordinate, node2: Coordinate, border: Int): List<Coordinate> {
+    val result = mutableListOf<Coordinate>()
+    val deltaFirstCoord = node1.first - node2.first
+    val deltaSecondCoord = node1.second - node2.second
+    var i = 0
+    while (i < border) {
+        val aFirst = Coordinate(node1.first + deltaFirstCoord * i, node1.second + deltaSecondCoord * i)
+        if (aFirst.isInBorders(border)) result.add(aFirst) else break
+        i++
+    }
+    i = 0
+    while (i < border) {
+        val aSecond = Coordinate(node2.first - deltaFirstCoord * i, node2.second - deltaSecondCoord * i)
+        if (aSecond.isInBorders(border)) result.add(aSecond) else break
+        i++
+    }
+    return result
 }
 
 fun main() {
@@ -63,4 +79,8 @@ fun main() {
 
     val input = readInput("Day08")
     calcAntinodes(input).println()
+
+    // Part 2
+    check(calcAntinodes(testInput, isResonant = true) == 34)
+    calcAntinodes(input, isResonant = true).println()
 }
