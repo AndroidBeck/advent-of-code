@@ -65,11 +65,17 @@ private fun getBlockIDs(input: String): MutableList<Block> {
     return blocks
 }
 
+private fun calcCheckSumP2(blocks: MutableList<Block>): Long {
+    var sum = 0L
+    blocks.calcStartsFromParams()
+    blocks.forEach { sum += it.calcCheckSum() }
+    return sum
+}
+
 private fun MutableList<Block>.calcStartsFromParams() {
     var left = 0
     var right = this.size - 1
     while (left <= right) {
-        println("$left, $right, leftBlock = ${this[left]} rightBlock = ${this[right]}")
         if (this[left].value != -1 || this[left].size == 0) left++
         else if (this[right].value == -1) right--
         else {
@@ -80,31 +86,12 @@ private fun MutableList<Block>.calcStartsFromParams() {
                     rightBlock.startsFrom = leftBlock.startsFrom
                     leftBlock.startsFrom += rightBlock.size
                     leftBlock.size -= rightBlock.size
-                    println("..Changes: left = ${this[left]} right = ${this[right]}")
                     break
                 }
             }
             right--
         }
     }
-}
-
-private fun calcCheckSumP2(blocks: MutableList<Block>): Long {
-    blocks.println()
-    blocks.calcStartsFromParams()
-    blocks.sortBy { it.startsFrom }
-    blocks.forEach { block ->
-        print(block)
-    }
-    println()
-    var sum = 0L
-    blocks.forEach { block ->
-        if (block.value != -1) sum += block.calcCheckSum()
-    }
-    blocks.forEach { block ->
-        println("$block, starts = ${block.startsFrom}, checkSum = ${block.calcCheckSum()}")
-    }
-    return sum
 }
 
 fun main() {
@@ -115,9 +102,7 @@ fun main() {
     calcFilesystemChecksum(input).println()
 
     // Part 2
-    calcFilesystemChecksum("12345", moveWholeFile = true).println()
     check(calcFilesystemChecksum("12345", moveWholeFile = true) == 132L)
-    calcFilesystemChecksum("2333133121414131402", moveWholeFile = true).println()
     check(calcFilesystemChecksum("2333133121414131402", moveWholeFile = true) == 2858L)
     calcFilesystemChecksum(input, moveWholeFile = true).println()
 }
