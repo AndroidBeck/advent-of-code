@@ -16,10 +16,11 @@ private fun Coordinate.getConnections(matrix: List<List<Int>>): List<Coordinate>
     return connections
 }
 
-private fun sumOfAllTrailheadsScores(input: List<String>): Int {
+private fun sumOfAllTrailheadsScores(input: List<String>, distinctPathToTop: Boolean = false): Int {
     val matrix = input.map { it.toCharArray().map { c -> c.digitToIntOrNull()!! } }
     val heads = mutableListOf<Coordinate>()
     val tops = mutableSetOf<Coordinate>()
+//    val leveledEdges = Array<MutableMap<Coordinate, MutableSet<Coordinate>>>(10) { mutableMapOf() }
     val edges = mutableMapOf<Coordinate, MutableSet<Coordinate>>()
     matrix.forEachIndexed { y, line ->
         line.forEachIndexed { x, value ->
@@ -28,12 +29,14 @@ private fun sumOfAllTrailheadsScores(input: List<String>): Int {
             if (value == 9) tops.add(coordinate)
             val connections = coordinate.getConnections(matrix)
             edges.computeIfAbsent(coordinate) { mutableSetOf() }.addAll(connections)
+//            leveledEdges[value].computeIfAbsent(coordinate) { mutableSetOf() }.addAll(connections)
         }
     }
-//    edges.forEach { edge -> println("${edge.key}: ${edge.value.joinToString(" ")}") }
     var sum = 0
+    val map = mutableMapOf<Coordinate, Int>()
+
     heads.forEach { head ->
-        sum += getNumberOfReachableTops(head, edges)
+        sum += if (distinctPathToTop) getNumberOfPathsToTops(head, edges) else getNumberOfReachableTops(head, edges)
     }
     return sum
 }
@@ -61,6 +64,30 @@ private fun getNumberOfReachableTops(head: Coordinate, edges: Map<Coordinate, Mu
     return connections.size
 }
 
+// Part 2
+private fun getNumberOfPathsToTops(head: Coordinate, edges: Map<Coordinate, MutableSet<Coordinate>>): Int {
+    var connections = mutableListOf(head)
+    val newConnections = mutableListOf<Coordinate>()
+//    println("head = $head")
+//    println("edges1 = ${edges[Coordinate(0,1)]} edges2 = ${edges[Coordinate(1,0)]}")
+    repeat(9) {
+        if (connections.isEmpty()) {
+//            println("Empty connections")
+            return 0
+        }
+        connections.forEach { node ->
+            val elements = edges[node]
+//            println("$node -> $elements")
+            elements?.let { newConnections.addAll(it) }
+        }
+//        newConnections.println()
+        connections = newConnections.toMutableList()
+//        println("..connections = $connections")
+        newConnections.clear()
+    }
+    return connections.size
+}
+
 fun main() {
     check(sumOfAllTrailheadsScores(listOf("0123", "1234", "8765", "9876")) == 1)
     val testInput = readInput("Day10_test")
@@ -68,4 +95,8 @@ fun main() {
 
     val input = readInput("Day10")
     sumOfAllTrailheadsScores(input).println()
+
+    // Part 2
+    check(sumOfAllTrailheadsScores(testInput,distinctPathToTop = true) == 81)
+    sumOfAllTrailheadsScores(input, distinctPathToTop = true).println()
 }
