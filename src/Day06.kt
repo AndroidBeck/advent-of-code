@@ -51,8 +51,6 @@ fun calcVisitedTiles(tiles: List<CharArray>): Int {
 }
 
 // Part 2
-typealias Coordinate = Pair<Int, Int>
-
 private fun List<CharArray>.findAllSymbols(symbol: Char): List<Coordinate> {
     val places = mutableListOf<Coordinate>()
     this.forEachIndexed { y, line ->
