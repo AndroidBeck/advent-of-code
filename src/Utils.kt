@@ -29,3 +29,8 @@ fun Any?.println() = println(this)
  * Useful class = Pair(x, y)
  */
 typealias Coordinate = Pair<Int, Int>
+
+fun Coordinate.x() = first
+fun Coordinate.y() = second
+fun Coordinate.plus(other: Coordinate) = Coordinate(x() + other.x(), y() + other.y())
+fun Coordinate.overcome(other: Coordinate) = x() > other.x() || y() > other.y()
