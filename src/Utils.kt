@@ -34,3 +34,24 @@ fun Coordinate.x() = first
 fun Coordinate.y() = second
 fun Coordinate.plus(other: Coordinate) = Coordinate(x() + other.x(), y() + other.y())
 fun Coordinate.overcome(other: Coordinate) = x() > other.x() || y() > other.y()
+
+typealias CoordinateL = Pair<Long, Long>
+
+fun CoordinateL.x() = first
+fun CoordinateL.y() = second
+fun CoordinateL.lPlus(other: CoordinateL) = CoordinateL(x() + other.x(), y() + other.y())
+fun CoordinateL.lOvercome(other: CoordinateL) = x() > other.x() || y() > other.y()
+
+/**
+ * GCD — Greatest Common Divisor
+ */
+fun gcd(a: Long, b: Long): Long {
+    return if (b == 0L) a else gcd(b, a % b)
+}
+
+/**
+ * LCM - Least common multiple
+ */
+fun lcm(a: Long, b: Long): Long {
+    return (a / gcd(a, b)) * b
+}
