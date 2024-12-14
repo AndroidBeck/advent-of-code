@@ -40,6 +40,17 @@ private fun Array<IntArray>.print() {
     forEach { line -> line.joinToString(" ").println() }
 }
 
+private fun Array<IntArray>.visualize() {
+    forEach { line ->
+        val builder = StringBuilder()
+        line.forEach { num ->
+            val symbol = if (num == 0) '.' else 'X'
+            builder.append(symbol)
+        }
+        builder.println()
+    }
+}
+
 // Part 2
 fun findEasterEggMoment(input: List<String>, xMax: Int = 101, yMax: Int = 103): Int {
     val robots = parseInput(input)
@@ -56,7 +67,7 @@ fun findEasterEggMoment(input: List<String>, xMax: Int = 101, yMax: Int = 103): 
         val maxRectSq = getMaxRectangleSquare(matrix)
         maxSq = maxSq.coerceAtLeast(maxRectSq)
         if (maxRectSq > 21) {
-            matrix.print()
+            matrix.visualize()
             "t = $t maxSquare = $maxRectSq".println()
             return t
         }
