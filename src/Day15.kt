@@ -1,4 +1,4 @@
-private const val BOX = '0'
+private const val BOX = 'O'
 private const val WALL = '#'
 private const val ROBOT = '@'
 private const val EMPTY = '.'
@@ -11,9 +11,9 @@ fun sumBoxesGPS(input: String): Int {
     val (left, right, up, down) = directions
     var robotC = getCoordinate(matrix, ROBOT)
 
-    commands.println()
-    robotC.println()
-    matrix.print()
+//    commands.println()
+//    robotC.println()
+//    matrix.print()
 
     commands.forEach { c ->
         robotC = when (c) {
@@ -23,100 +23,79 @@ fun sumBoxesGPS(input: String): Int {
             down -> moveDown(robotC, matrix)
             else -> return -1 // Incorrect command
         }
-        c.println()
-        robotC.println()
-        matrix.print()
+//        commands.println()
+//        robotC.println()
+//        matrix.print()
     }
-
     return boxGPSSum(matrix)
 }
 
 fun moveLeft(robotC: Coordinate, matrix: List<CharArray>): Coordinate {
     var (j, i) = robotC
-    val end = j
+    val start = j
     var c = ROBOT
-    var emptyNum = 0
     var boxNum = 0
-    while (c != WALL) {
+    while (c != EMPTY) {
         j--
         c = matrix[i][j]
-        if (c == EMPTY) emptyNum++
         if (c == BOX) boxNum++
+        else if (c == WALL) return robotC
     }
-    if (emptyNum == 0) return robotC
-    val start = j
-    for (k in start + 1.. start + boxNum) matrix[i][k] = BOX
-    j = start + boxNum + 1
-    matrix[i][j] = ROBOT
-    for (k in j + 1 .. end) matrix[i][k] = EMPTY
-    "start = $start end = $end emptyNum = $emptyNum boxNum = $boxNum".println()
-    return Coordinate(end - emptyNum, i)
+    matrix[i][j] = BOX
+    matrix[i][start] = EMPTY
+    matrix[i][start - 1] = ROBOT
+    return Coordinate(start - 1, i)
 }
 
 fun moveRight(robotC: Coordinate, matrix: List<CharArray>): Coordinate {
     var (j, i) = robotC
     val start = j
     var c = ROBOT
-    var emptyNum = 0
     var boxNum = 0
-    while (c != WALL) {
+    while (c != EMPTY) {
         j++
         c = matrix[i][j]
-        if (c == EMPTY) emptyNum++
         if (c == BOX) boxNum++
+        else if (c == WALL) return robotC
     }
-    if (emptyNum == 0) return robotC
-    val end = j
-    for (k in start..< start + emptyNum) matrix[i][k] = EMPTY
-    j = start + emptyNum
-    matrix[i][j] = ROBOT
-    for (k in j + 1 ..< end) matrix[i][k] = BOX
-    "start = $start end = $end emptyNum = $emptyNum boxNum = $boxNum".println()
-    return Coordinate(start + emptyNum, i)
+    matrix[i][j] = BOX
+    matrix[i][start] = EMPTY
+    matrix[i][start + 1] = ROBOT
+    return Coordinate(start + 1, i)
 }
 
 fun moveUp(robotC: Coordinate, matrix: List<CharArray>): Coordinate {
     var (j, i) = robotC
-    val end = i
+    val start = i
     var c = ROBOT
-    var emptyNum = 0
     var boxNum = 0
-    while (c != WALL) {
+    while (c != EMPTY) {
         i--
         c = matrix[i][j]
-        if (c == EMPTY) emptyNum++
         if (c == BOX) boxNum++
+        else if (c == WALL) return robotC
     }
-    if (emptyNum == 0) return robotC
-    val start = i
-    for (k in start + 1.. start + boxNum) matrix[k][j] = BOX
-    i = start + boxNum + 1
-    matrix[i][j] = ROBOT
-    for (k in i + 1 .. end) matrix[k][j] = EMPTY
-    "start = $start end = $end emptyNum = $emptyNum boxNum = $boxNum".println()
-    return Coordinate(i, end - emptyNum)
+    matrix[i][j] = BOX
+    matrix[start][j] = EMPTY
+    matrix[start - 1][j] = ROBOT
+    return Coordinate(j, start - 1)
 }
 
 fun moveDown(robotC: Coordinate, matrix: List<CharArray>): Coordinate {
     var (j, i) = robotC
     val start = i
     var c = ROBOT
-    var emptyNum = 0
     var boxNum = 0
-    while (c != WALL) {
+    while (c != EMPTY) {
         i++
         c = matrix[i][j]
-        if (c == EMPTY) emptyNum++
         if (c == BOX) boxNum++
+        else if (c == WALL) return robotC
     }
-    if (emptyNum == 0) return robotC
-    val end = i
-    for (k in start..< start + emptyNum) matrix[k][j] = EMPTY
-    i = start + emptyNum
-    matrix[i][j] = ROBOT
-    for (k in i + 1 ..< end) matrix[k][j] = BOX
-    "start = $start end = $end emptyNum = $emptyNum boxNum = $boxNum".println()
-    return Coordinate(j, start + emptyNum)
+    matrix[i][j] = BOX
+    matrix[start][j] = EMPTY
+    matrix[start + 1][j] = ROBOT
+    return Coordinate(j, start + 1)
 }
 
 private fun getCoordinate(matrix: List<CharArray>, symbol: Char): Coordinate {
@@ -136,9 +115,14 @@ private fun List<CharArray>.print() {
 
 private fun boxGPSSum(matrix: List<CharArray>): Int {
     var sum = 0
-    matrix.forEachIndexed { i, line ->
-        line.forEachIndexed { j, c ->
-            if (c == BOX) sum += 100 * i + j
+    matrix.forEachIndexed { i, array ->
+        array.forEachIndexed { j, c ->
+//            "$i, $j $c".println()
+            if (c == BOX) {
+                val add = 100 * i + j
+                sum += add
+//                "($i, $j) add = $add sum = $sum".println()
+            }
         }
     }
     return sum
@@ -149,17 +133,13 @@ fun main() {
     val testInput = readText("Day15_test")
     val input = readText("Day15")
 
-//    sumBoxesGPS("#..0@#\n\r\n<").println() // left
-//    sumBoxesGPS("#.0.0.0.0@#\n\r\n<").println() // left
-
-//    sumBoxesGPS("#@0..#\n\r\n>").println() // right
-//    sumBoxesGPS("#@.0.0.0.0#\n\r\n>").println() // right
-
-//    sumBoxesGPS("#\n.\n0\n.\n.\n@\n#\n\r\n^").println() // up
-//    sumBoxesGPS("#\n0\n.\n0\n.\n0\n.\n0\n.\n@\n#\n\r\n^").println() // up
-
-//    sumBoxesGPS("#\n@\n0\n.\n.\n0\n#\n\r\nv").println() // down
-//    sumBoxesGPS("#\n@\n.\n0\n.\n0\n.\n0\n.\n0\n#\n\r\nv").println() // down
+//    sumBoxesGPS("#.0.0.00@#\n\r\n<").println() // left
+//    sumBoxesGPS("#.0000@#\n\r\n<").println() // left
+//    sumBoxesGPS("#@00.0.0#\n\r\n>").println() // right
+//    sumBoxesGPS("#\n0\n.\n0\n.\n0\n0\n@\n#\n\r\n^").println() // up
+//    sumBoxesGPS("#\n@\n0\n0\n.\n0\n.\n0\n#\n\r\nv").println() // down
 
     sumBoxesGPS(smallTestInput).println()
+    sumBoxesGPS(testInput).println()
+    sumBoxesGPS(input).println()
 }
