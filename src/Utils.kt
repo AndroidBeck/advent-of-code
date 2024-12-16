@@ -73,6 +73,13 @@ fun Direction.turnLeft(): Direction = when(this) {
     WEST -> SOUTH
 }
 
+fun Direction.opposite(): Direction = when(this) {
+    NORTH -> SOUTH
+    SOUTH -> NORTH
+    EAST -> WEST
+    WEST -> EAST
+}
+
 fun Coordinate.moveInDir(direction: Direction): Coordinate {
     val (dx, dy) = when(direction) {
         NORTH -> Pair(0, -1)
@@ -81,6 +88,16 @@ fun Coordinate.moveInDir(direction: Direction): Coordinate {
         WEST -> Pair(-1, 0)
     }
     return Coordinate(this.x() + dx, this.y() + dy)
+}
+
+fun getDirection(from: Coordinate, to: Coordinate): Direction {
+    val delta = Coordinate(to.x() - from.x(), to.y() - from.y())
+    return when {
+        delta.x() < 0 -> WEST
+        delta.x() > 0 -> EAST
+        delta.y() > 0 -> SOUTH
+        else -> NORTH
+    }
 }
 
 fun Coordinate.move(dx: Int, dy: Int): Coordinate = Coordinate(this.x() + dx, this.y() + dy)
