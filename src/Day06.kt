@@ -1,13 +1,3 @@
-enum class Direction {
-    NORTH, SOUTH, EAST, WEST;
-    fun turnRight() = when(this) {
-        NORTH -> EAST
-        EAST -> SOUTH
-        SOUTH -> WEST
-        WEST -> NORTH
-    }
-}
-
 private fun findSymbol(tiles: List<CharArray>, symbol: Char): Pair<Int, Int> {
     tiles.forEachIndexed { y, line ->
         line.forEachIndexed { x, c ->
@@ -103,11 +93,11 @@ fun main() {
     check(calcVisitedTiles(testInput) == 41)
 
     val input = readInput("Day06").map { it.toCharArray() } // 130 x 130
-    calcVisitedTiles(input).println()
+    calcVisitedTiles(input).println() // 4967
 
     // Part 2 (inputs are changed here)
     val testInput2 = readInput("Day06_test").map { it.toCharArray() } // 10 x 10
     check(calcPlacesForObstacle(testInput2) == 6)
     val input2 = readInput("Day06").map { it.toCharArray() } // 130 x 130
-    calcPlacesForObstacle(input2).println()
+    calcPlacesForObstacle(input2).println() // 1789
 }

@@ -2,6 +2,7 @@ import java.math.BigInteger
 import java.security.MessageDigest
 import kotlin.io.path.Path
 import kotlin.io.path.readText
+import Direction.*
 
 /**
  * Reads lines from the given input txt file.
@@ -55,3 +56,37 @@ fun gcd(a: Long, b: Long): Long {
 fun lcm(a: Long, b: Long): Long {
     return (a / gcd(a, b)) * b
 }
+
+enum class Direction { NORTH, SOUTH, EAST, WEST; }
+
+fun Direction.turnRight(): Direction = when(this) {
+    NORTH -> EAST
+    EAST -> SOUTH
+    SOUTH -> WEST
+    WEST -> NORTH
+}
+
+fun Direction.turnLeft(): Direction = when(this) {
+    NORTH -> WEST
+    EAST -> NORTH
+    SOUTH -> EAST
+    WEST -> SOUTH
+}
+
+fun Coordinate.moveInDir(direction: Direction): Coordinate {
+    val (dx, dy) = when(direction) {
+        NORTH -> Pair(0, -1)
+        EAST -> Pair(1, 0)
+        SOUTH -> Pair(0, 1)
+        WEST -> Pair(-1, 0)
+    }
+    return Coordinate(this.x() + dx, this.y() + dy)
+}
+
+fun Coordinate.move(dx: Int, dy: Int): Coordinate = Coordinate(this.x() + dx, this.y() + dy)
+
+fun Coordinate.getValueIn(matrix: List<String>): Char = matrix[this.y()][this.x()]
+fun Coordinate.getValueIn(matrix: Array<IntArray>): Int = matrix[this.y()][this.x()]
+
+//fun Coordinate.setValueIn(matrix: List<String>, value: Char) { matrix[this.y()][this.x()] == value }
+//fun Coordinate.setValueIn(matrix: Array<IntArray>, value: Int) { matrix[this.y()][this.x()] == value }
