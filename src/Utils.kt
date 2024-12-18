@@ -121,3 +121,25 @@ fun Array<BooleanArray>.get(c: Coordinate) = this[c.y()][c.x()]
 fun Array<BooleanArray>.set(c: Coordinate, value: Boolean) { this[c.y()][c.x()] = value }
 
 fun Coordinate.sumXY(): Int = x() + y()
+
+private fun List<Int>.lBinSearch(from: Int = 0, to: Int = size - 1, comparison: (Int) -> Boolean): Int {
+    var l = from
+    var r = to
+    while (l < r) {
+        val m = (l + r) / 2
+        if (comparison(m)) r = m
+        else l = m + 1
+    }
+    return l
+}
+
+fun List<Int>.rBinSearch(from: Int = 0, to: Int = size - 1, comparison: (Int) -> Boolean): Int {
+    var l = from
+    var r = to
+    while (l < r) {
+        val m = (l + r + 1) / 2
+        if (comparison(m)) l = m
+        else r = m - 1
+    }
+    return l
+}
