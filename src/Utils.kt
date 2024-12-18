@@ -90,6 +90,12 @@ fun Coordinate.moveInDir(direction: Direction): Coordinate {
     return Coordinate(this.x() + dx, this.y() + dy)
 }
 
+fun Coordinate.getNeighbours(): List<Coordinate> {
+    val list = mutableListOf<Coordinate>()
+    Direction.entries.forEach { list.add(moveInDir(it)) }
+    return list
+}
+
 fun getDirection(from: Coordinate, to: Coordinate): Direction {
     val delta = Coordinate(to.x() - from.x(), to.y() - from.y())
     return when {
@@ -104,6 +110,14 @@ fun Coordinate.move(dx: Int, dy: Int): Coordinate = Coordinate(this.x() + dx, th
 
 fun Coordinate.getValueIn(matrix: List<String>): Char = matrix[this.y()][this.x()]
 fun Coordinate.getValueIn(matrix: Array<IntArray>): Int = matrix[this.y()][this.x()]
+fun Coordinate.getValueIn(matrix: Array<BooleanArray>): Boolean = matrix[this.y()][this.x()]
 
-//fun Coordinate.setValueIn(matrix: List<String>, value: Char) { matrix[this.y()][this.x()] == value }
-//fun Coordinate.setValueIn(matrix: Array<IntArray>, value: Int) { matrix[this.y()][this.x()] == value }
+fun Array<String>.get(c: Coordinate) = this[c.y()][c.x()]
+
+fun Array<IntArray>.get(c: Coordinate) = this[c.y()][c.x()]
+fun Array<IntArray>.set(c: Coordinate, value: Int) { this[c.y()][c.x()] = value }
+
+fun Array<BooleanArray>.get(c: Coordinate) = this[c.y()][c.x()]
+fun Array<BooleanArray>.set(c: Coordinate, value: Boolean) { this[c.y()][c.x()] = value }
+
+fun Coordinate.sumXY(): Int = x() + y()
