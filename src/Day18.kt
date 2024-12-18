@@ -1,69 +1,24 @@
-fun minStepsNumber(input: List<String>, fallen: Int, xMax: Int = 70, yMax: Int = 70, p2: Boolean = false, debug: Boolean = false): Int {
-    val corruptBlocks = input.map { it.split(",").map { s -> s.toInt() } }.map { l -> Coordinate(l[0], l[1]) }
+fun minStepsNumber(input: List<String>, fallen: Int, xMax: Int = 70, yMax: Int = 70, debug: Boolean = false): Int {
     val corruptMap = mutableMapOf<Coordinate, Int>() // coord -> time of corruption
     val isSafeMatrix = Array(yMax + 1) { BooleanArray(xMax + 1)  { true } }
     val steps = Array(yMax + 1) { IntArray(xMax + 1) { Int.MAX_VALUE } }
-
-    fun Coordinate.isSafe() = x() in 0..xMax && y() in 0..yMax && isSafeMatrix.get(this)
-
     val start = Coordinate(0, 0)
     val finish = Coordinate(xMax, yMax)
-    val path = mutableListOf<Coordinate>()
 
+    fun Coordinate.isSafe() = x() in 0..xMax && y() in 0..yMax && isSafeMatrix.get(this)
     fun dfs(c: Coordinate, step: Int) {
         if (step < steps.get(c)) steps.set(c, step) else return
         if (c != finish) c.getNeighbours().forEach { neighbourC -> if (neighbourC.isSafe()) dfs(neighbourC,  step + 1) } else return
     }
 
-    if (!p2) {
-        for (i in 0..< fallen) {
-            val c = corruptBlocks[i]
-            corruptMap[c] = i
-            isSafeMatrix.set(c, false)
-        }
-        dfs(start, 0)
-        return steps.get(finish)
-    }
-
-    corruptBlocks.forEachIndexed { i, c ->
+    val corruptBlocks = input.take(fallen).map { it.split(",").map { s -> s.toInt() } }.map { l -> Coordinate(l[0], l[1]) }
+    for (i in 0..< fallen) {
+        val c = corruptBlocks[i]
         corruptMap[c] = i
-        if (i < c.sumXY()) isSafeMatrix.set(c, false)
+        isSafeMatrix.set(c, false)
     }
-
-    fun dfsBack(c: Coordinate) {
-        path.add(c)
-        if (c == start) return
-        val possibleC = c.getNeighbours().filter { it.isSafe() }
-        val minValue = possibleC.minOf { it.getValueIn(steps) }
-        val next = possibleC.first { it.getValueIn(steps) == minValue }
-        dfsBack(next)
-    }
-
-    var iterations = 0
-    repeat(corruptBlocks.size) {
-        dfs(start, 0)
-        dfsBack(finish)
-        val pathSet = path.toSet()
-        val corruptBlocksOnPath = pathSet.intersect(corruptMap.keys)
-        corruptBlocksOnPath.forEach { c ->
-            val time = corruptMap[c]!!
-            val step = steps.get(c)
-            if (step >= time - 1) { // time + 1 ???
-                iterations++
-                isSafeMatrix.set(c, false)
-                path.clear()
-                for (i in 0.. yMax) {
-                    for (j in 0.. xMax) steps[i][j] = Int.MAX_VALUE
-                }
-                return@repeat
-            }
-        }
-        if (debug) printDebugInfo(isSafeMatrix, corruptMap, steps, path, iterations)
-        return path.size
-    }
-
-    println("No way out!")
-    return -1
+    dfs(start, 0)
+    return steps.get(finish).takeIf { it != Int.MAX_VALUE } ?: -1
 }
 
 private fun printDebugInfo(isSafeMatrix: Array<BooleanArray>, corruptMap: Map<Coordinate, Int>, steps: Array<IntArray>, path: List<Coordinate>, iterations: Int) {
