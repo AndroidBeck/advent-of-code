@@ -143,3 +143,5 @@ fun List<Int>.rBinSearch(from: Int = 0, to: Int = size - 1, comparison: (Int) ->
     }
     return l
 }
+
+fun Long.toBinary() = toString(radix = 2).reversed().chunked(3).joinToString(" ").reversed()
