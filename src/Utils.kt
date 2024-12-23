@@ -96,6 +96,8 @@ fun Coordinate.getNeighbours(): List<Coordinate> {
     return list
 }
 
+fun Coordinate.inBorders(xMax: Int, yMax: Int = xMax, xMin: Int = 0, yMin: Int = 0) = x() in xMin..xMax && y() in yMin..yMax
+
 fun getDirection(from: Coordinate, to: Coordinate): Direction {
     val delta = Coordinate(to.x() - from.x(), to.y() - from.y())
     return when {
