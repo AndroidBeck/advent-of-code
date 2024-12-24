@@ -3,7 +3,7 @@ private const val BARRIER = '#'
 private const val START = 'S'
 private const val END = 'E'
 
-fun calcCheatsSavingPs(matrix: List<String>, needSave: Int = 100): Int {
+fun calcCheatsSavingPs(matrix: List<String>, needSave: Int = 100, cheatLength: Int = 2, debug: Boolean = false): Int {
     val n = matrix.size
     val scores = Array(n) { IntArray(n) { Int.MAX_VALUE } }
     var start = Coordinate (1, 1)
@@ -17,40 +17,58 @@ fun calcCheatsSavingPs(matrix: List<String>, needSave: Int = 100): Int {
             }
         }
     }
+
     fun Coordinate.isBarrier() = scores.get(this) == -1
+    val cheatsQueue = ArrayDeque <Triple<Coordinate, Int, Int>>()
+
     val dfs = DeepRecursiveFunction<Pair<Coordinate, Int>, Unit> { (c, steps) ->
         if (scores.get(c) > steps) scores.set(c, steps) else return@DeepRecursiveFunction
         if (c == finish) return@DeepRecursiveFunction
-        c.getNeighbours().forEach { if (it.inBorders(n - 1) && !it.isBarrier()) callRecursive(Pair(it, steps + 1)) }
-    }
-    dfs(Pair(start, 0))
-//    scores.forEach { it.joinToString(" ").println() }
-
-    val savedOnCheat = mutableMapOf<Int, Int>()
-    val dfs2 = DeepRecursiveFunction<Pair<Coordinate, Int>, Unit> { (c, steps) ->
-        if (steps > scores.get(c)) return@DeepRecursiveFunction
-        if (c == finish) return@DeepRecursiveFunction
-        c.getNeighbours().forEach { n1 ->
-            if (n1.isBarrier()) {
-                val n2 = n1.moveInDir(getDirection(from = c, to = n1))
-//                "c = $c, n1 = $n1, n2 = $n2".println()
-                if (n2.inBorders(n - 1)) {
-                    val delta = scores.get(n2) - (steps + 2)
-                    if (delta > 0) savedOnCheat[delta] = savedOnCheat.computeIfAbsent(delta) { 0 }.plus(1)
-                }
-            } else if (n1.inBorders(n - 1)) callRecursive(Pair(n1, steps + 1))
+        cheatsQueue.add(Triple(c, steps, cheatLength))
+        c.getNeighbours().forEach {
+            if (!it.isBarrier()) callRecursive(Pair(it, steps + 1))
         }
     }
-    dfs2(Pair(start, 0))
-//    savedOnCheat.keys.sorted().forEach { "$it -> ${savedOnCheat[it]}".println() }
+
+    dfs(Pair(start, 0))
+    if (debug) scores.forEach { it.joinToString(" ").println() }
+
     var acc = 0
-    savedOnCheat.entries.forEach { (key, value) -> if (key >= needSave) acc += value }
+    val maxScore = scores.get(finish)
+    val maxMomentToFinish = maxScore - needSave
+    val visitedCheatLeft = Array(n) { IntArray(n) { 0 } }
+    val successC = mutableSetOf<Coordinate>()
+
+    val barrierDfs = DeepRecursiveFunction<Triple<Coordinate, Int, Int>, Unit> { (c, steps, cheatTimeLeft) ->
+        if (steps > maxMomentToFinish || cheatTimeLeft <= visitedCheatLeft.get(c)) return@DeepRecursiveFunction
+        visitedCheatLeft.set(c, cheatTimeLeft)
+        if (scores.get(c) - steps >= needSave && c !in successC) {
+            acc++
+            successC.add(c)
+        }
+        c.getNeighbours().forEach { neighbour ->
+            if (neighbour.inBorders(n - 1)) callRecursive(Triple(neighbour, steps + 1, cheatTimeLeft - 1))
+        }
+    }
+
+    while (cheatsQueue.isNotEmpty()) {
+        val (c, steps, cheatsLeft) = cheatsQueue.removeLastOrNull()!!
+        barrierDfs(Triple(c, steps, cheatsLeft + 1))
+        visitedCheatLeft.forEach { for (i in it.indices) it[i] = 0 }
+        successC.clear()
+    }
     return acc
 }
 
 fun main() {
     val testInput = readInput("Day20_test")
     val input = readInput("Day20")
-    check(calcCheatsSavingPs(testInput, needSave = 64) == 1)
-    calcCheatsSavingPs(input).println() //
+    check(calcCheatsSavingPs(testInput, needSave = 64, debug = false) == 1)
+    check(calcCheatsSavingPs(input, debug = false) == 1497) // 1497 (Part 1)
+
+    check(calcCheatsSavingPs(testInput, needSave = 76, cheatLength = 20) == 3)
+    check(calcCheatsSavingPs(testInput, needSave = 74, cheatLength = 20) == 7)
+    check(calcCheatsSavingPs(testInput, needSave = 72, cheatLength = 20) == 29)
+    check(calcCheatsSavingPs(testInput, needSave = 50, cheatLength = 20) == 285)
+    calcCheatsSavingPs(input, needSave = 100, cheatLength = 20).println() //  1030809
 }
