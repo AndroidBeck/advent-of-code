@@ -3,6 +3,7 @@ import java.security.MessageDigest
 import kotlin.io.path.Path
 import kotlin.io.path.readText
 import Direction.*
+import javax.swing.text.html.HTML.Tag.S
 
 /**
  * Reads lines from the given input txt file.
@@ -108,6 +109,17 @@ fun getDirection(from: Coordinate, to: Coordinate): Direction {
     }
 }
 
+fun getDirections(from: Coordinate, to: Coordinate): List<Direction> {
+    val delta = Coordinate(to.x() - from.x(), to.y() - from.y())
+    val dirs = mutableListOf<Direction>().apply {
+        if (delta.x() < 0) add(WEST)
+        else if (delta.x() > 0) add(EAST)
+        if (delta.y() < 0) add(NORTH)
+        else if (delta.y() > 0) add(SOUTH)
+    }
+    return dirs
+}
+
 fun Coordinate.move(dx: Int, dy: Int): Coordinate = Coordinate(this.x() + dx, this.y() + dy)
 
 fun Coordinate.getValueIn(matrix: List<String>): Char = matrix[this.y()][this.x()]
@@ -115,6 +127,7 @@ fun Coordinate.getValueIn(matrix: Array<IntArray>): Int = matrix[this.y()][this.
 fun Coordinate.getValueIn(matrix: Array<BooleanArray>): Boolean = matrix[this.y()][this.x()]
 
 fun Array<String>.get(c: Coordinate) = this[c.y()][c.x()]
+fun List<String>.get(c: Coordinate) = this[c.y()][c.x()]
 
 fun Array<IntArray>.get(c: Coordinate) = this[c.y()][c.x()]
 fun Array<IntArray>.set(c: Coordinate, value: Int) { this[c.y()][c.x()] = value }
