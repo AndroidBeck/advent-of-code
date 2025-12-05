@@ -1,4 +1,3 @@
-// "src/C25_Day04.txt
 import java.io.File
 
 fun main(args: Array<String>) {
@@ -19,12 +18,12 @@ fun main(args: Array<String>) {
         index++
     }
 
-    // Skip the blank line (if present)
+    // Skip blank lines between sections
     while (index < lines.size && lines[index].isBlank()) {
         index++
     }
 
-    // --- Parse IDs ---
+    // --- Parse IDs (for part 1 only) ---
     val ids = mutableListOf<Long>()
     while (index < lines.size) {
         val line = lines[index].trim()
@@ -34,12 +33,14 @@ fun main(args: Array<String>) {
         index++
     }
 
-    // --- Merge overlapping / adjacent ranges ---
     if (ranges.isEmpty()) {
-        println(0)
+        // No ranges means no fresh IDs at all
+        println("Part 1: 0")
+        println("Part 2: 0")
         return
     }
 
+    // --- Merge overlapping / adjacent ranges ---
     val sorted = ranges.sortedWith(compareBy<Pair<Long, Long>> { it.first }.thenBy { it.second })
     val merged = mutableListOf<Pair<Long, Long>>()
 
@@ -60,9 +61,9 @@ fun main(args: Array<String>) {
     }
     merged += currentStart to currentEnd
 
-    // --- Check each ID via binary search over merged ranges ---
-    var freshCount = 0
-
+    // ================
+    // Part 1: how many of the available IDs are fresh?
+    // ================
     fun isFresh(id: Long): Boolean {
         var lo = 0
         var hi = merged.size - 1
@@ -78,9 +79,20 @@ fun main(args: Array<String>) {
         return false
     }
 
+    var freshCount = 0
     for (id in ids) {
         if (isFresh(id)) freshCount++
     }
 
-    println(freshCount)
+    // ================
+    // Part 2: how many IDs are considered fresh by the ranges?
+    // (total size of the union of all ranges)
+    // ================
+    var totalFreshByRanges = 0L
+    for ((start, end) in merged) {
+        totalFreshByRanges += (end - start + 1)
+    }
+
+    println("Part 1: $freshCount")
+    println("Part 2: $totalFreshByRanges")
 }
