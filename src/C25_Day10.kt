@@ -180,99 +180,191 @@ fun minPressesLights(machine: Machine): Int {
     return best
 }
 
-// -------- Part 2: joltage counters with BFS --------
+// -------- Part 2: joltage counters with branch-and-bound ILP --------
 
 fun minPressesJolts(machine: Machine): Int {
     val target = machine.joltageTargets
     val m = target.size
     if (m == 0) return 0
 
-    // Precompute which counters each button affects (indices list)
-    val buttonsMask = machine.buttonMasks
-    val buttonIndices = mutableListOf<IntArray>()
-    for (mask in buttonsMask) {
+    val rawMasks = machine.buttonMasks
+    val btnCountersList = mutableListOf<IntArray>()
+
+    // For each button, determine which counters it affects.
+    for (mask in rawMasks) {
         val idxs = mutableListOf<Int>()
         for (i in 0 until m) {
             if (mask and (1 shl i) != 0) {
                 idxs.add(i)
             }
         }
+        // If a button affects no counters in the joltage vector, it's irrelevant.
         if (idxs.isNotEmpty()) {
-            buttonIndices.add(idxs.toIntArray())
+            btnCountersList.add(idxs.toIntArray())
         }
     }
-    if (buttonIndices.isEmpty()) {
-        // No useful buttons; only solvable if all targets are 0
+
+    val n = btnCountersList.size
+    if (n == 0) {
+        // Only possible if all targets are zero.
         return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
     }
 
-    // Mixed-radix encoding: radices[i] = target[i] + 1
-    val radices = IntArray(m)
-    val strides = IntArray(m)
-    var mul = 1L
+    // Compute U_j = max times we could possibly press button j
+    // based on each counter it touches: x_j <= min_{i in J_j} target[i].
+    val U_raw = IntArray(n)
+    run {
+        for (j in 0 until n) {
+            val counters = btnCountersList[j]
+            var u = Int.MAX_VALUE
+            for (i in counters) {
+                val t = target[i]
+                if (t < u) u = t
+            }
+            if (u == Int.MAX_VALUE) u = 0
+            U_raw[j] = u
+        }
+    }
+
+    // Remove buttons with U_j == 0 (they cannot contribute).
+    val filteredCounters = mutableListOf<IntArray>()
+    val filteredU = mutableListOf<Int>()
+    for (j in 0 until n) {
+        if (U_raw[j] > 0) {
+            filteredCounters.add(btnCountersList[j])
+            filteredU.add(U_raw[j])
+        }
+    }
+
+    val n2 = filteredCounters.size
+    if (n2 == 0) {
+        // Again, only solvable if all targets are zero.
+        return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
+    }
+
+    // Rebuild arrays with only useful buttons.
+    var btnCounters = Array(n2) { IntArray(0) }
+    val maxPress = IntArray(n2)
+    for (j in 0 until n2) {
+        btnCounters[j] = filteredCounters[j]
+        maxPress[j] = filteredU[j]
+    }
+
+    // Order buttons: most "involved" first (touching more counters).
+    val order = (0 until n2).sortedByDescending { btnCounters[it].size }.toIntArray()
+    val orderedBtnCounters = Array(n2) { IntArray(0) }
+    val orderedMaxPress = IntArray(n2)
+    for (k in 0 until n2) {
+        val j = order[k]
+        orderedBtnCounters[k] = btnCounters[j]
+        orderedMaxPress[k] = maxPress[j]
+    }
+    btnCounters = orderedBtnCounters
+    for (k in 0 until n2) {
+        maxPress[k] = orderedMaxPress[k]
+    }
+
+    // Precompute remainMax[k][i] = maximum possible additional "increments"
+    // we can still give to counter i using buttons from k..n2-1.
+    val remainMax = Array(n2 + 1) { IntArray(m) }
+    // remainMax[n2][i] = 0 for all i already.
+    for (k in n2 - 1 downTo 0) {
+        val prev = remainMax[k + 1]
+        val cur = remainMax[k]
+        // Start from previous.
+        for (i in 0 until m) {
+            cur[i] = prev[i]
+        }
+        val u = maxPress[k]
+        for (idx in btnCounters[k]) {
+            cur[idx] += u
+        }
+    }
+
+    // Quick feasibility check: for each counter, total possible contribution must >= target.
     for (i in 0 until m) {
-        val base = target[i] + 1
-        if (base <= 0) return Int.MAX_VALUE // negative target impossible
-        radices[i] = base
-        strides[i] = mul.toInt()
-        mul *= base.toLong()
-        // safety: if state space explodes, abort with "no solution" (shouldn't happen in puzzle input)
-        if (mul > 50_000_000L) {
-            // Too many states; treat as unsolvable under this approach
+        if (remainMax[0][i] < target[i]) {
             return Int.MAX_VALUE
         }
     }
-    val stateCount = mul.toInt()
 
-    // Encode target state
-    val targetId = encodeState(target, strides)
+    val residual = target.clone()
+    var best = Int.MAX_VALUE
 
-    // BFS
-    val dist = IntArray(stateCount) { -1 }
-    val queue = IntArray(stateCount)
-    var head = 0
-    var tail = 0
+    fun dfs(k: Int, currentSum: Int) {
+        if (currentSum >= best) return
 
-    dist[0] = 0
-    queue[tail++] = 0
+        // Compute max residual and basic feasibility.
+        var maxRes = 0
+        for (i in 0 until m) {
+            val r = residual[i]
+            if (r < 0) return
+            if (r > maxRes) maxRes = r
+        }
 
-    val currentCounters = IntArray(m)
+        // If all satisfied, update best.
+        if (maxRes == 0) {
+            if (currentSum < best) best = currentSum
+            return
+        }
 
-    while (head < tail) {
-        val id = queue[head++]
-        val d = dist[id]
-        if (id == targetId) return d
+        // If no more buttons but still residuals, dead end.
+        if (k == n2) return
 
-        // Decode id -> currentCounters[]
-        decodeState(id, radices, currentCounters)
+        // Lower bound: at least maxRes more presses are needed.
+        if (currentSum + maxRes >= best) return
 
-        // Try pressing each button once
-        for (idxs in buttonIndices) {
-            var ok = true
-            // Check we don't overshoot any counter this button touches
-            for (idx in idxs) {
-                if (currentCounters[idx] == target[idx]) {
-                    ok = false
-                    break
+        // Additional feasibility: for each counter with residual > 0,
+        // we must have some remaining total capacity.
+        val rem = remainMax[k]
+        for (i in 0 until m) {
+            if (residual[i] > 0 && rem[i] == 0) return
+        }
+
+        val affected = btnCounters[k]
+        val U = maxPress[k]
+
+        // Determine bounds [lb, ub] for x_k.
+        var lb = 0
+        var ub = U
+        for (idx in affected) {
+            val r = residual[idx]
+            if (r < 0) return
+            if (r < ub) ub = r
+
+            // r = x_k + sum_{j>k} a_ij x_j, with 0 <= x_j <= U_j
+            // => x_k >= r - sum_{j>k} U_j * a_ij  = r - remainMax[k+1][idx]
+            val maxRemContrib = remainMax[k + 1][idx]
+            val neededFromThis = r - maxRemContrib
+            if (neededFromThis > lb) lb = neededFromThis
+        }
+
+        if (lb < 0) lb = 0
+        if (lb > ub) return
+
+        // Try x_k from small to big (small first to hopefully find a good solution early).
+        val savedResidual = IntArray(m)
+        for (x in lb..ub) {
+            val newSum = currentSum + x
+            if (newSum >= best) break  // x only increases, so further values won't help.
+
+            // Save residual
+            for (i in 0 until m) savedResidual[i] = residual[i]
+            if (x != 0) {
+                for (idx in affected) {
+                    residual[idx] -= x
                 }
             }
-            if (!ok) continue
 
-            var newId = id
-            // Each press adds 1 to those counters -> +stride[idx] in ID
-            for (idx in idxs) {
-                newId += strides[idx]
-            }
+            dfs(k + 1, newSum)
 
-            if (dist[newId] == -1) {
-                dist[newId] = d + 1
-                queue[tail++] = newId
-            }
+            // Restore residual
+            for (i in 0 until m) residual[i] = savedResidual[i]
         }
     }
 
-    // If we exhausted the BFS without reaching target
-    return Int.MAX_VALUE
+    dfs(0, 0)
+    return best
 }
 
 private fun encodeState(values: IntArray, strides: IntArray): Int {
