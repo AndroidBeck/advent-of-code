@@ -16,31 +16,40 @@ fun main() {
 
     val machines = file.readLines().filter { it.isNotBlank() }.map { parseMachine(it) }
 
-    // Part 1
     var totalPart1 = 0L
-    for ((idx, m) in machines.withIndex()) {
-        val presses = minPressesLights(m)
-        if (presses == Int.MAX_VALUE) {
-            System.err.println("No light configuration solution for machine on line ${idx + 1}")
-            exitProcess(1)
-        }
-        totalPart1 += presses
-    }
-
-    // Part 2
     var totalPart2 = 0L
+
+    println("=== Per-machine debug output ===")
+
     for ((idx, m) in machines.withIndex()) {
-        val presses = minPressesJolts(m)
-        if (presses == Int.MAX_VALUE) {
-            System.err.println("No joltage configuration solution for machine on line ${idx + 1}")
-            exitProcess(1)
+        val lineNo = idx + 1
+
+        // Part 1
+//        val p1 = minPressesLights(m)
+//        if (p1 == Int.MAX_VALUE) {
+//            println("Machine $lineNo: Part1 = NO SOLUTION")
+//        } else {
+//            println("Machine $lineNo: Part1 = $p1 presses")
+//            totalPart1 += p1
+//        }
+
+        // Part 2
+        val p2 = minPressesJolts(m)
+        if (p2 == Int.MAX_VALUE) {
+            println("Machine $lineNo: Part2 = NO SOLUTION")
+        } else {
+            println("Machine $lineNo: Part2 = $p2 presses")
+            totalPart2 += p2
         }
-        totalPart2 += presses
+
+        println("----")
     }
 
-    println(totalPart1) // Part 1 answer
-    println(totalPart2) // Part 2 answer
+    println("=== Totals ===")
+    println("Part 1 total presses = $totalPart1")
+    println("Part 2 total presses = $totalPart2")
 }
+
 
 // -------- Parsing --------
 
@@ -99,6 +108,7 @@ fun parseMachine(line: String): Machine {
             val token = p.trim()
             if (token.isEmpty()) continue
             val idx = token.toInt()
+            if (idx < 0) continue
             mask = mask or (1 shl idx)
         }
         if (mask != 0) {
@@ -180,7 +190,7 @@ fun minPressesLights(machine: Machine): Int {
     return best
 }
 
-// -------- Part 2: joltage counters with branch-and-bound ILP --------
+// -------- Part 2: joltage counters (branch-and-bound ILP) --------
 
 fun minPressesJolts(machine: Machine): Int {
     val target = machine.joltageTargets
@@ -188,9 +198,9 @@ fun minPressesJolts(machine: Machine): Int {
     if (m == 0) return 0
 
     val rawMasks = machine.buttonMasks
-    val btnCountersList = mutableListOf<IntArray>()
+    val tmpBtnCounters = mutableListOf<IntArray>()
 
-    // For each button, determine which counters it affects.
+    // For each button, determine which counters it affects (indices within [0, m))
     for (mask in rawMasks) {
         val idxs = mutableListOf<Int>()
         for (i in 0 until m) {
@@ -198,80 +208,96 @@ fun minPressesJolts(machine: Machine): Int {
                 idxs.add(i)
             }
         }
-        // If a button affects no counters in the joltage vector, it's irrelevant.
         if (idxs.isNotEmpty()) {
-            btnCountersList.add(idxs.toIntArray())
+            tmpBtnCounters.add(idxs.toIntArray())
         }
     }
 
-    val n = btnCountersList.size
+    var n = tmpBtnCounters.size
     if (n == 0) {
-        // Only possible if all targets are zero.
+        // Only possible if all targets are zero
         return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
     }
 
     // Compute U_j = max times we could possibly press button j
     // based on each counter it touches: x_j <= min_{i in J_j} target[i].
-    val U_raw = IntArray(n)
+    val Uraw = IntArray(n)
     run {
         for (j in 0 until n) {
-            val counters = btnCountersList[j]
+            val counters = tmpBtnCounters[j]
             var u = Int.MAX_VALUE
             for (i in counters) {
                 val t = target[i]
                 if (t < u) u = t
             }
             if (u == Int.MAX_VALUE) u = 0
-            U_raw[j] = u
+            Uraw[j] = u
         }
     }
 
-    // Remove buttons with U_j == 0 (they cannot contribute).
+    // Remove buttons with U_j == 0 (they cannot help reach positive targets).
     val filteredCounters = mutableListOf<IntArray>()
     val filteredU = mutableListOf<Int>()
     for (j in 0 until n) {
-        if (U_raw[j] > 0) {
-            filteredCounters.add(btnCountersList[j])
-            filteredU.add(U_raw[j])
+        if (Uraw[j] > 0) {
+            filteredCounters.add(tmpBtnCounters[j])
+            filteredU.add(Uraw[j])
         }
     }
 
-    val n2 = filteredCounters.size
-    if (n2 == 0) {
-        // Again, only solvable if all targets are zero.
+    n = filteredCounters.size
+    if (n == 0) {
         return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
     }
 
     // Rebuild arrays with only useful buttons.
-    var btnCounters = Array(n2) { IntArray(0) }
-    val maxPress = IntArray(n2)
-    for (j in 0 until n2) {
+    var btnCounters = Array(n) { IntArray(0) }
+    val maxPress = IntArray(n)
+    for (j in 0 until n) {
         btnCounters[j] = filteredCounters[j]
         maxPress[j] = filteredU[j]
     }
 
-    // Order buttons: most "involved" first (touching more counters).
-    val order = (0 until n2).sortedByDescending { btnCounters[it].size }.toIntArray()
-    val orderedBtnCounters = Array(n2) { IntArray(0) }
-    val orderedMaxPress = IntArray(n2)
-    for (k in 0 until n2) {
+    // Check every counter is touched by at least one button; otherwise impossible if target[i] > 0.
+    val touchedBy = IntArray(m)
+    for (j in 0 until n) {
+        for (idx in btnCounters[j]) {
+            touchedBy[idx]++
+        }
+    }
+    for (i in 0 until m) {
+        if (target[i] > 0 && touchedBy[i] == 0) {
+            return Int.MAX_VALUE
+        }
+    }
+
+    // Order buttons: primarily by how many counters they touch, breaking ties by sum of target values.
+    val order = (0 until n).sortedWith(
+        compareByDescending<Int> { btnCounters[it].size }
+            .thenByDescending { j -> btnCounters[j].sumOf { idx -> target[idx] } }
+    ).toIntArray()
+
+    val orderedBtnCounters = Array(n) { IntArray(0) }
+    val orderedMaxPress = IntArray(n)
+    for (k in 0 until n) {
         val j = order[k]
         orderedBtnCounters[k] = btnCounters[j]
         orderedMaxPress[k] = maxPress[j]
     }
     btnCounters = orderedBtnCounters
-    for (k in 0 until n2) {
+    for (k in 0 until n) {
         maxPress[k] = orderedMaxPress[k]
     }
 
-    // Precompute remainMax[k][i] = maximum possible additional "increments"
-    // we can still give to counter i using buttons from k..n2-1.
-    val remainMax = Array(n2 + 1) { IntArray(m) }
-    // remainMax[n2][i] = 0 for all i already.
-    for (k in n2 - 1 downTo 0) {
+    val deg = IntArray(n) { btnCounters[it].size }
+    val Btot = target.sum()
+
+    // remainMax[k][i] = maximum additional increments we can give to counter i using buttons k..n-1
+    val remainMax = Array(n + 1) { IntArray(m) }
+    for (k in n - 1 downTo 0) {
         val prev = remainMax[k + 1]
         val cur = remainMax[k]
-        // Start from previous.
+        // start from prev
         for (i in 0 until m) {
             cur[i] = prev[i]
         }
@@ -281,20 +307,34 @@ fun minPressesJolts(machine: Machine): Int {
         }
     }
 
-    // Quick feasibility check: for each counter, total possible contribution must >= target.
+    // remainD[k] = max extra total "increments" (sum of all counters) from buttons k..n-1
+    // dMaxRem[k] = largest degree among buttons k..n-1
+    val remainD = IntArray(n + 1)
+    val dMaxRem = IntArray(n + 1)
+    for (k in n - 1 downTo 0) {
+        remainD[k] = remainD[k + 1] + deg[k] * maxPress[k]
+        dMaxRem[k] = maxOf(dMaxRem[k + 1], deg[k])
+    }
+
+    // Quick global feasibility: each counter must be reachable in total.
     for (i in 0 until m) {
         if (remainMax[0][i] < target[i]) {
             return Int.MAX_VALUE
         }
     }
+    if (remainD[0] < Btot) {
+        return Int.MAX_VALUE
+    }
 
     val residual = target.clone()
     var best = Int.MAX_VALUE
 
-    fun dfs(k: Int, currentSum: Int) {
+    fun dfs(k: Int, currentSum: Int, usedIncrements: Int) {
         if (currentSum >= best) return
 
-        // Compute max residual and basic feasibility.
+        val B_res = Btot - usedIncrements
+
+        // Compute max residual and basic validity
         var maxRes = 0
         for (i in 0 until m) {
             val r = residual[i]
@@ -302,84 +342,83 @@ fun minPressesJolts(machine: Machine): Int {
             if (r > maxRes) maxRes = r
         }
 
-        // If all satisfied, update best.
+        // All satisfied
         if (maxRes == 0) {
             if (currentSum < best) best = currentSum
             return
         }
 
-        // If no more buttons but still residuals, dead end.
-        if (k == n2) return
+        // No more buttons to use
+        if (k == n) return
 
-        // Lower bound: at least maxRes more presses are needed.
-        if (currentSum + maxRes >= best) return
+        // Lower bound on additional presses using residual and remaining degrees
+        val dMax = dMaxRem[k]
+        if (dMax == 0) return
+        val lbAddFromRes = maxRes
+        val lbAddFromTotal = (B_res + dMax - 1) / dMax
+        val lbAdd = maxOf(lbAddFromRes, lbAddFromTotal)
+        if (currentSum + lbAdd >= best) return
 
-        // Additional feasibility: for each counter with residual > 0,
-        // we must have some remaining total capacity.
-        val rem = remainMax[k]
+        // Capacity checks
+        val remCap = remainMax[k]
         for (i in 0 until m) {
-            if (residual[i] > 0 && rem[i] == 0) return
+            if (residual[i] > remCap[i]) return
         }
+        if (remainD[k] < B_res) return
 
         val affected = btnCounters[k]
-        val U = maxPress[k]
+        val U_k = maxPress[k]
 
-        // Determine bounds [lb, ub] for x_k.
+        // Determine bounds [lb, ub] for x_k from per-counter constraints
         var lb = 0
-        var ub = U
+        var ub = U_k
+        val remNextCap = remainMax[k + 1]
         for (idx in affected) {
             val r = residual[idx]
-            if (r < 0) return
             if (r < ub) ub = r
-
-            // r = x_k + sum_{j>k} a_ij x_j, with 0 <= x_j <= U_j
-            // => x_k >= r - sum_{j>k} U_j * a_ij  = r - remainMax[k+1][idx]
-            val maxRemContrib = remainMax[k + 1][idx]
-            val neededFromThis = r - maxRemContrib
-            if (neededFromThis > lb) lb = neededFromThis
+            val needFromThis = r - remNextCap[idx]
+            if (needFromThis > lb) lb = needFromThis
         }
-
         if (lb < 0) lb = 0
+
+        // Global equation bounds from total increments:
+        // d_k * x_k + increments_from_future = B_res
+        val d_k = deg[k]
+        var lowEq = B_res - remainD[k + 1]
+        if (lowEq < 0) lowEq = 0
+        val lbEq = (lowEq + d_k - 1) / d_k
+        val ubEq = B_res / d_k
+
+        if (lbEq > lb) lb = lbEq
+        if (ubEq < ub) ub = ubEq
         if (lb > ub) return
 
-        // Try x_k from small to big (small first to hopefully find a good solution early).
-        val savedResidual = IntArray(m)
+        // Try values for x_k from lb to ub (small first).
+        val saved = IntArray(m)
         for (x in lb..ub) {
             val newSum = currentSum + x
-            if (newSum >= best) break  // x only increases, so further values won't help.
+            if (newSum >= best) break
 
             // Save residual
-            for (i in 0 until m) savedResidual[i] = residual[i]
+            for (i in 0 until m) {
+                saved[i] = residual[i]
+            }
+
             if (x != 0) {
                 for (idx in affected) {
                     residual[idx] -= x
                 }
             }
 
-            dfs(k + 1, newSum)
+            dfs(k + 1, newSum, usedIncrements + d_k * x)
 
-            // Restore residual
-            for (i in 0 until m) residual[i] = savedResidual[i]
+            // Restore
+            for (i in 0 until m) {
+                residual[i] = saved[i]
+            }
         }
     }
 
-    dfs(0, 0)
+    dfs(0, 0, 0)
     return best
-}
-
-private fun encodeState(values: IntArray, strides: IntArray): Int {
-    var id = 0
-    for (i in values.indices) {
-        id += values[i] * strides[i]
-    }
-    return id
-}
-
-private fun decodeState(id: Int, radices: IntArray, out: IntArray) {
-    var rem = id
-    for (i in radices.indices) {
-        val base = radices[i]
-        out[i] = rem % base
-        rem /= base
-    }
 }
