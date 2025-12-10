@@ -200,42 +200,31 @@ fun minPressesJolts(machine: Machine): Int {
     val rawMasks = machine.buttonMasks
     val tmpBtnCounters = mutableListOf<IntArray>()
 
-    // For each button, determine which counters it affects (indices within [0, m))
+    // Build list of counters affected by each button (restricted to 0..m-1)
     for (mask in rawMasks) {
         val idxs = mutableListOf<Int>()
         for (i in 0 until m) {
-            if (mask and (1 shl i) != 0) {
-                idxs.add(i)
-            }
+            if (mask and (1 shl i) != 0) idxs.add(i)
         }
-        if (idxs.isNotEmpty()) {
-            tmpBtnCounters.add(idxs.toIntArray())
-        }
+        if (idxs.isNotEmpty()) tmpBtnCounters.add(idxs.toIntArray())
     }
 
     var n = tmpBtnCounters.size
     if (n == 0) {
-        // Only possible if all targets are zero
         return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
     }
 
-    // Compute U_j = max times we could possibly press button j
-    // based on each counter it touches: x_j <= min_{i in J_j} target[i].
+    // Upper bound per button: min target among counters it touches
     val Uraw = IntArray(n)
-    run {
-        for (j in 0 until n) {
-            val counters = tmpBtnCounters[j]
-            var u = Int.MAX_VALUE
-            for (i in counters) {
-                val t = target[i]
-                if (t < u) u = t
-            }
-            if (u == Int.MAX_VALUE) u = 0
-            Uraw[j] = u
-        }
+    for (j in 0 until n) {
+        val counters = tmpBtnCounters[j]
+        var u = Int.MAX_VALUE
+        for (i in counters) u = minOf(u, target[i])
+        if (u == Int.MAX_VALUE) u = 0
+        Uraw[j] = u
     }
 
-    // Remove buttons with U_j == 0 (they cannot help reach positive targets).
+    // Drop useless buttons with U_j == 0
     val filteredCounters = mutableListOf<IntArray>()
     val filteredU = mutableListOf<Int>()
     for (j in 0 until n) {
@@ -250,7 +239,7 @@ fun minPressesJolts(machine: Machine): Int {
         return if (target.all { it == 0 }) 0 else Int.MAX_VALUE
     }
 
-    // Rebuild arrays with only useful buttons.
+    // Rebuild arrays
     var btnCounters = Array(n) { IntArray(0) }
     val maxPress = IntArray(n)
     for (j in 0 until n) {
@@ -258,20 +247,16 @@ fun minPressesJolts(machine: Machine): Int {
         maxPress[j] = filteredU[j]
     }
 
-    // Check every counter is touched by at least one button; otherwise impossible if target[i] > 0.
-    val touchedBy = IntArray(m)
+    // Check each counter is touched at least once
+    val touched = IntArray(m)
     for (j in 0 until n) {
-        for (idx in btnCounters[j]) {
-            touchedBy[idx]++
-        }
+        for (idx in btnCounters[j]) touched[idx]++
     }
     for (i in 0 until m) {
-        if (target[i] > 0 && touchedBy[i] == 0) {
-            return Int.MAX_VALUE
-        }
+        if (target[i] > 0 && touched[i] == 0) return Int.MAX_VALUE
     }
 
-    // Order buttons: primarily by how many counters they touch, breaking ties by sum of target values.
+    // Order buttons: more counters & bigger targets first
     val order = (0 until n).sortedWith(
         compareByDescending<Int> { btnCounters[it].size }
             .thenByDescending { j -> btnCounters[j].sumOf { idx -> target[idx] } }
@@ -285,30 +270,23 @@ fun minPressesJolts(machine: Machine): Int {
         orderedMaxPress[k] = maxPress[j]
     }
     btnCounters = orderedBtnCounters
-    for (k in 0 until n) {
-        maxPress[k] = orderedMaxPress[k]
-    }
+    for (k in 0 until n) maxPress[k] = orderedMaxPress[k]
 
     val deg = IntArray(n) { btnCounters[it].size }
     val Btot = target.sum()
 
-    // remainMax[k][i] = maximum additional increments we can give to counter i using buttons k..n-1
+    // remainMax[k][i] = max extra increments on counter i from buttons k..n-1
     val remainMax = Array(n + 1) { IntArray(m) }
     for (k in n - 1 downTo 0) {
         val prev = remainMax[k + 1]
         val cur = remainMax[k]
-        // start from prev
-        for (i in 0 until m) {
-            cur[i] = prev[i]
-        }
+        for (i in 0 until m) cur[i] = prev[i]
         val u = maxPress[k]
-        for (idx in btnCounters[k]) {
-            cur[idx] += u
-        }
+        for (idx in btnCounters[k]) cur[idx] += u
     }
 
-    // remainD[k] = max extra total "increments" (sum of all counters) from buttons k..n-1
-    // dMaxRem[k] = largest degree among buttons k..n-1
+    // remainD[k] = max extra total increments from buttons k..n-1
+    // dMaxRem[k] = max degree of buttons k..n-1
     val remainD = IntArray(n + 1)
     val dMaxRem = IntArray(n + 1)
     for (k in n - 1 downTo 0) {
@@ -316,18 +294,26 @@ fun minPressesJolts(machine: Machine): Int {
         dMaxRem[k] = maxOf(dMaxRem[k + 1], deg[k])
     }
 
-    // Quick global feasibility: each counter must be reachable in total.
+    // Global feasibility
     for (i in 0 until m) {
-        if (remainMax[0][i] < target[i]) {
-            return Int.MAX_VALUE
-        }
+        if (remainMax[0][i] < target[i]) return Int.MAX_VALUE
     }
-    if (remainD[0] < Btot) {
-        return Int.MAX_VALUE
-    }
+    if (remainD[0] < Btot) return Int.MAX_VALUE
 
+    // Residual vector and best found
     val residual = target.clone()
     var best = Int.MAX_VALUE
+
+    // Lightweight memo: encode (k, residual[]) -> Long
+    fun encodeState(k: Int, res: IntArray): Long {
+        var h = (k + 1).toLong()
+        for (v in res) {
+            h = h * 131L + v
+        }
+        return h
+    }
+
+    val memo = HashMap<Long, Int>(1_000_000)
 
     fun dfs(k: Int, currentSum: Int, usedIncrements: Int) {
         if (currentSum >= best) return
@@ -342,21 +328,21 @@ fun minPressesJolts(machine: Machine): Int {
             if (r > maxRes) maxRes = r
         }
 
-        // All satisfied
+        // All counters satisfied
         if (maxRes == 0) {
             if (currentSum < best) best = currentSum
             return
         }
 
-        // No more buttons to use
+        // No more buttons
         if (k == n) return
 
-        // Lower bound on additional presses using residual and remaining degrees
+        // Lower bound on extra presses
         val dMax = dMaxRem[k]
         if (dMax == 0) return
-        val lbAddFromRes = maxRes
-        val lbAddFromTotal = (B_res + dMax - 1) / dMax
-        val lbAdd = maxOf(lbAddFromRes, lbAddFromTotal)
+        val lbFromRes = maxRes
+        val lbFromTotal = (B_res + dMax - 1) / dMax
+        val lbAdd = maxOf(lbFromRes, lbFromTotal)
         if (currentSum + lbAdd >= best) return
 
         // Capacity checks
@@ -366,23 +352,30 @@ fun minPressesJolts(machine: Machine): Int {
         }
         if (remainD[k] < B_res) return
 
+        // Memo check (lightweight)
+        val key = encodeState(k, residual)
+        val prev = memo[key]
+        if (prev != null && prev <= currentSum) return
+        memo[key] = currentSum
+        // Avoid unbounded memory
+        if (memo.size > 2_000_000) memo.clear()
+
         val affected = btnCounters[k]
         val U_k = maxPress[k]
 
-        // Determine bounds [lb, ub] for x_k from per-counter constraints
+        // Bounds [lb, ub] for x_k from per-counter constraints
         var lb = 0
         var ub = U_k
-        val remNextCap = remainMax[k + 1]
+        val remNext = remainMax[k + 1]
         for (idx in affected) {
             val r = residual[idx]
             if (r < ub) ub = r
-            val needFromThis = r - remNextCap[idx]
+            val needFromThis = r - remNext[idx]
             if (needFromThis > lb) lb = needFromThis
         }
         if (lb < 0) lb = 0
 
-        // Global equation bounds from total increments:
-        // d_k * x_k + increments_from_future = B_res
+        // Bounds from total increments equation
         val d_k = deg[k]
         var lowEq = B_res - remainD[k + 1]
         if (lowEq < 0) lowEq = 0
@@ -393,29 +386,23 @@ fun minPressesJolts(machine: Machine): Int {
         if (ubEq < ub) ub = ubEq
         if (lb > ub) return
 
-        // Try values for x_k from lb to ub (small first).
+        // Try x_k in [lb, ub]
         val saved = IntArray(m)
         for (x in lb..ub) {
             val newSum = currentSum + x
             if (newSum >= best) break
 
             // Save residual
-            for (i in 0 until m) {
-                saved[i] = residual[i]
-            }
+            for (i in 0 until m) saved[i] = residual[i]
 
             if (x != 0) {
-                for (idx in affected) {
-                    residual[idx] -= x
-                }
+                for (idx in affected) residual[idx] -= x
             }
 
             dfs(k + 1, newSum, usedIncrements + d_k * x)
 
-            // Restore
-            for (i in 0 until m) {
-                residual[i] = saved[i]
-            }
+            // Restore residual
+            for (i in 0 until m) residual[i] = saved[i]
         }
     }
 
